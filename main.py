@@ -3,76 +3,52 @@ import os
 from typing import List
 from static import popular_cities
 import streamlit as st
-from streamlit_searchbox import st_searchbox
 
-# ---------- THEME (dark-blue palette) ----------
 st.markdown(
     """
     <style>
-    :root {
-        --primary-color: #1f6feb;          /* bright blue accents */
-        --background-color: #001a3d;       /* dark blue page background */
-        --secondary-background-color: #002451; /* cards / form background */
-        --text-color: #e6eefc;             /* light blue-gray text */
-        --font: "Inter", sans-serif;
+    /* menu panel (old selector) */
+    div[data-baseweb="select"] div[role="listbox"],
+    /* menu panel (new selector) */
+    div[data-baseweb="menu"]
+    {   /* entire drop-down background + border */
+        background: #13244f !important;          /* dark navy */
+        border: 1px solid #4361ee !important;    /* blue outline */
     }
 
-    /* Page base */
-    html, body, [class*="css"]  {
-        color: var(--text-color);
-        background-color: var(--background-color);
-        font-family: var(--font);
+    /* option row (old) */
+    div[data-baseweb="select"] [role="option"],
+    /* option row (new) */
+    div[data-baseweb="menu"] div[role="option"]
+    {
+        background: #13244f !important;
+        color: #f1faee !important;               /* light text */
+        padding: 0.55rem 0.75rem !important;
     }
 
-    /* Headings */
-    h1, h2, h3, h4 {
-        color: var(--primary-color);
-        margin-top: 0.3em;
-        margin-bottom: 0.3em;
-    }
-
-    /* Buttons */
-    .stButton>button {
-        background: var(--primary-color);
-        color: white;
-        border: none;
-    }
-
-    /* Sliders */
-    .stSlider > div[data-testid*="stTickBar"] {
-        color: var(--text-color);
-    }
-
-    /* Form "cards" */
-    section[data-testid="stForm"] {
-        background: var(--secondary-background-color);
-        border-radius: 8px;
-        padding: 1.5rem;
-        border: 1px solid rgba(31,111,235,0.15);
-    }
-
-    /* ── NEW: dark-blue dropdown menu ───────────────────────────── */
-    /* The menu container that appears when the selectbox opens */
-    div[data-baseweb="select"] div[role="listbox"] {
-        background: var(--secondary-background-color) !important;
-        color: var(--text-color);
-    }
-    /* Individual option items */
-    div[data-baseweb="select"] [role="option"] {
-        background: var(--secondary-background-color) !important;
-        color: var(--text-color);
-    }
-    div[data-baseweb="select"] [role="option"]:hover {
-        background: rgba(31,111,235,0.25) !important;  /* subtle hover highlight */
+    /* hover / focus */
+    div[data-baseweb="select"] [role="option"]:hover,
+    div[data-baseweb="menu"] div[role="option"]:hover,
+    div[data-baseweb="select"] [role="option"][aria-selected="true"],
+    div[data-baseweb="menu"] div[role="option"][aria-selected="true"]
+    {
+        background: #274b8d !important;          /* bright blue highlight */
+        color: #ffffff !important;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+
+
 # ---------- BASIC SETUP ----------
-st.set_page_config("Hangout Planner", layout="centered")
-st.title("📍 Hangout Planner")
+st.set_page_config("Reout", layout="centered")
+st.title("Reout")
+
+st.markdown(
+    "Tell us your city, add each friend’s preferences, then hit **Generate** for an AI-crafted itinerary."
+)
 
 # Session state init
 for k, v in [("members", []), ("city", None)]:
@@ -84,22 +60,20 @@ def city_suggestions(search_term: str):
     return [c for c in popular_cities if search_term in c.lower()][:10]
 
 
-st.subheader("🏙️  Hangout location")
-typed_city = st_searchbox(                                             # ← NEW widget
-    city_suggestions,
-    key="city_sb",
-    placeholder="Start typing a city…",
-    label="City",
-)
-
-# typed_city is None until the user hits Enter or chooses a suggestion
-st.session_state["city"] = typed_city.strip() if typed_city else ""
+st.subheader("🏙️  Hangout Location")
+st.session_state["city"] = st.text_input(
+    "City",                               # field label
+    value="",                             # start empty
+    placeholder="Type any city name…"     # grey hint text
+).strip()                                 # store trimmed value
 
 st.divider()
 
 # ---------- HELPERS ----------
 def add_member(data: dict) -> None:
     st.session_state["members"].append(data)
+
+
 
 
 def build_prompt(members: List[dict], city: str) -> str:
@@ -152,6 +126,17 @@ def openai_chat(prompt: str, model: str = "gpt-4o-mini") -> str:
             return rsp.choices[0].message["content"]
         raise
 
+@st.cache_data(show_spinner=False)
+def available_models() -> list[str]:
+    """Return the list of model IDs your key can use."""
+    try:
+        from openai import OpenAI
+        client = OpenAI()
+        return [m.id for m in client.models.list().data]
+    except Exception:
+        import openai
+        return [m["id"] for m in openai.Model.list()["data"]]
+
 
 # ---------- MEMBER FORM ----------
 with st.form("member_form", clear_on_submit=True):
@@ -193,7 +178,17 @@ with st.form("member_form", clear_on_submit=True):
         "Dietary restrictions", ["Vegetarian", "Vegan", "Gluten-free", "Halal", "Kosher"]
     )
 
-    if st.form_submit_button("Add member ➕"):
+
+    # ── CENTERED BUTTON ──
+    col_l, col_c, col_r = st.columns([1, 2, 1])  # 1-2-1 grid
+    with col_c:
+        submitted = st.form_submit_button(
+            "Add this member to hangout",
+            type="primary",  # Streamlit gives it a blue background
+            use_container_width=True  # make it full-width inside the middle column
+        )
+
+    if submitted:
         if not name:
             st.error("Name can’t be empty.")
         else:
