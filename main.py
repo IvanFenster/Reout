@@ -96,7 +96,7 @@ def build_prompt(members: List[dict], city: str) -> str:
     footer = (
         "\nReturn step-by-step plan with 2–5 places to go. At the beginning, suggest when the "
         "hangout should be and how long it should take. For each place give address, estimated "
-        "time, one-sentence description, and cost estimate. Ensure all venues are real and form "
+        "time, one-sentence description, and cost estimate. Search for all venues and their addresses to make sure they exist in the city before adding them to the plan. Form "
         "a coherent plan for the group."
     )
     return "\n".join([header, *people, footer])
