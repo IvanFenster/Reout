@@ -1,3 +1,3 @@
 streamlit>=1.35
 openai>=1.12
-streamlit-searchbox
+gspread>=5.10
