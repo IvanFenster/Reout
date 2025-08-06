@@ -228,63 +228,65 @@ if st.session_state["members"]:
                         model="gpt-4o-mini-search-preview",
                     )
                     st.markdown(itinerary)
+
+                    # ──────────────────────────────────────────────────
+                    # FEEDBACK & LIVE RATING UPDATE
+                    # ──────────────────────────────────────────────────
+                    st.divider()
+                    st.subheader("📝 How useful was this plan?")
+
+
+                    def _on_star_change():
+                        """Called whenever the star‐rating radio button changes."""
+                        ws = _sheet_client()
+                        city = st.session_state["city"]
+                        rating = st.session_state["feedback_rating"]
+                        now = dt.datetime.utcnow().isoformat(timespec="seconds")
+                        # If this is the first time rating:
+                        if "feedback_row" not in st.session_state:
+                            # Append a new row: [timestamp, city, rating, ""]
+                            ws.append_row([now, city, rating, ""], value_input_option="USER_ENTERED")
+                            # Figure out what row we just added:
+                            row_idx = len(ws.get_all_values())
+                            st.session_state["feedback_row"] = row_idx
+                        else:
+                            # Update the existing row's 3rd column (rating)
+                            row_idx = st.session_state["feedback_row"]
+                            ws.update_cell(row_idx, 3, rating)
+
+
+                    # 1) Radio with on_change callback
+                    rating = st.radio(
+                        "Rate the itinerary",
+                        [1, 2, 3, 4, 5],
+                        format_func=lambda i: "⭐" * i,
+                        horizontal=True,
+                        key="feedback_rating",
+                        on_change=_on_star_change,
+                    )
+
+                    # 2) Free-text comment box
+                    comment = st.text_area(
+                        "Comments (optional)",
+                        placeholder="What did you like? What could be better?",
+                        key="feedback_comment",
+                        height=120,
+                    )
+
+                    # 3) Button to submit the comment
+                    if st.button("Submit comment"):
+                        if "feedback_row" not in st.session_state:
+                            st.warning("Please pick a star rating first.")
+                        else:
+                            ws = _sheet_client()
+                            row_idx = st.session_state["feedback_row"]
+                            user_note = st.session_state["feedback_comment"]
+                            ws.update_cell(row_idx, 4, user_note)
+                            st.success("Thanks for your feedback! 🙌")
                 except Exception as e:
                     st.error(f"OpenAI error:\n```\n{e}\n```")
+
+
+
 else:
     st.info("Add at least one member to start planning.")
-
-# ----- show AI itinerary -----
-st.markdown(itinerary)
-
-# ──────────────────────────────────────────────────
-# FEEDBACK & LIVE RATING UPDATE
-# ──────────────────────────────────────────────────
-st.divider()
-st.subheader("📝 How useful was this plan?")
-
-def _on_star_change():
-    """Called whenever the star‐rating radio button changes."""
-    ws = _sheet_client()
-    city = st.session_state["city"]
-    rating = st.session_state["feedback_rating"]
-    now = dt.datetime.utcnow().isoformat(timespec="seconds")
-    # If this is the first time rating:
-    if "feedback_row" not in st.session_state:
-        # Append a new row: [timestamp, city, rating, ""]
-        ws.append_row([now, city, rating, ""], value_input_option="USER_ENTERED")
-        # Figure out what row we just added:
-        row_idx = len(ws.get_all_values())
-        st.session_state["feedback_row"] = row_idx
-    else:
-        # Update the existing row's 3rd column (rating)
-        row_idx = st.session_state["feedback_row"]
-        ws.update_cell(row_idx, 3, rating)
-
-# 1) Radio with on_change callback
-rating = st.radio(
-    "Rate the itinerary",
-    [1, 2, 3, 4, 5],
-    format_func=lambda i: "⭐" * i,
-    horizontal=True,
-    key="feedback_rating",
-    on_change=_on_star_change,
-)
-
-# 2) Free-text comment box
-comment = st.text_area(
-    "Comments (optional)",
-    placeholder="What did you like? What could be better?",
-    key="feedback_comment",
-    height=120,
-)
-
-# 3) Button to submit the comment
-if st.button("Submit comment"):
-    if "feedback_row" not in st.session_state:
-        st.warning("Please pick a star rating first.")
-    else:
-        ws = _sheet_client()
-        row_idx = st.session_state["feedback_row"]
-        user_note = st.session_state["feedback_comment"]
-        ws.update_cell(row_idx, 4, user_note)
-        st.success("Thanks for your feedback! 🙌")
