@@ -4,7 +4,7 @@ from typing import List
 from static import popular_cities
 import streamlit as st
 import datetime as dt
-import gspread #okay
+import gspread
 
 st.markdown(
     """
@@ -47,6 +47,8 @@ st.markdown(
 # ---------- BASIC SETUP ----------
 st.set_page_config("Reout", layout="centered")
 st.title("Reout")
+
+st.write("SECRETS LOADED:", st.secrets)
 
 st.markdown(
     "Tell us your city, add each friend’s preferences, then hit **Generate** for an AI-crafted itinerary."
@@ -217,76 +219,64 @@ if st.session_state["members"]:
         )
 
     st.markdown("---")
+    # 1) Inside your generate button block, save to session_state
     if st.button("🚀 Generate outing plan", type="primary"):
         if not st.session_state["city"]:
             st.error("Choose or enter a city first 📍")
         else:
             with st.spinner("Generating your hangout plan …"):
-                try:
-                    itinerary = openai_chat(
-                        build_prompt(st.session_state["members"], st.session_state["city"]),
-                        model="gpt-4o-mini-search-preview",
-                    )
-                    st.markdown(itinerary)
+                itinerary = openai_chat(
+                    build_prompt(st.session_state["members"], st.session_state["city"]),
+                    model="gpt-4o-mini-search-preview",
+                )
+            # persist it so reruns keep it
+            st.session_state["itinerary"] = itinerary
 
-                    # ──────────────────────────────────────────────────
-                    # FEEDBACK & LIVE RATING UPDATE
-                    # ──────────────────────────────────────────────────
-                    st.divider()
-                    st.subheader("📝 How useful was this plan?")
+    # 2) Outside of that block, check and render if present
+    if "itinerary" in st.session_state:
+        st.markdown(st.session_state["itinerary"])
 
+        # ── Feedback UI ──
 
-                    def _on_star_change():
-                        """Called whenever the star‐rating radio button changes."""
-                        ws = _sheet_client()
-                        city = st.session_state["city"]
-                        rating = st.session_state["feedback_rating"]
-                        now = dt.datetime.utcnow().isoformat(timespec="seconds")
-                        # If this is the first time rating:
-                        if "feedback_row" not in st.session_state:
-                            # Append a new row: [timestamp, city, rating, ""]
-                            ws.append_row([now, city, rating, ""], value_input_option="USER_ENTERED")
-                            # Figure out what row we just added:
-                            row_idx = len(ws.get_all_values())
-                            st.session_state["feedback_row"] = row_idx
-                        else:
-                            # Update the existing row's 3rd column (rating)
-                            row_idx = st.session_state["feedback_row"]
-                            ws.update_cell(row_idx, 3, rating)
+        st.divider()
+        st.subheader("📝 How useful was this plan?")
 
 
-                    # 1) Radio with on_change callback
-                    rating = st.radio(
-                        "Rate the itinerary",
-                        [1, 2, 3, 4, 5],
-                        format_func=lambda i: "⭐" * i,
-                        horizontal=True,
-                        key="feedback_rating",
-                        on_change=_on_star_change,
-                    )
-
-                    # 2) Free-text comment box
-                    comment = st.text_area(
-                        "Comments (optional)",
-                        placeholder="What did you like? What could be better?",
-                        key="feedback_comment",
-                        height=120,
-                    )
-
-                    # 3) Button to submit the comment
-                    if st.button("Submit comment"):
-                        if "feedback_row" not in st.session_state:
-                            st.warning("Please pick a star rating first.")
-                        else:
-                            ws = _sheet_client()
-                            row_idx = st.session_state["feedback_row"]
-                            user_note = st.session_state["feedback_comment"]
-                            ws.update_cell(row_idx, 4, user_note)
-                            st.success("Thanks for your feedback! 🙌")
-                except Exception as e:
-                    st.error(f"OpenAI error:\n```\n{e}\n```")
+        def _on_star_change():
+            ws = _sheet_client()
+            city = st.session_state["city"]
+            rating = st.session_state["feedback_rating"]
+            now = dt.datetime.utcnow().isoformat(timespec="seconds")
+            if "feedback_row" not in st.session_state:
+                ws.append_row([now, city, rating, ""], value_input_option="USER_ENTERED")
+                st.session_state["feedback_row"] = len(ws.get_all_values())
+            else:
+                ws.update_cell(st.session_state["feedback_row"], 3, rating)
 
 
+        rating = st.radio(
+            "Rate the itinerary",
+            [1, 2, 3, 4, 5],
+            format_func=lambda i: "⭐" * i,
+            horizontal=True,
+            key="feedback_rating",
+            on_change=_on_star_change,
+        )
+
+        comment = st.text_area(
+            "Comments (optional)",
+            placeholder="What did you like? What could be better?",
+            key="feedback_comment",
+            height=120,
+        )
+
+        if st.button("Submit comment"):
+            if "feedback_row" not in st.session_state:
+                st.warning("Please pick a star rating first.")
+            else:
+                ws = _sheet_client()
+                ws.update_cell(st.session_state["feedback_row"], 4, st.session_state["feedback_comment"])
+                st.success("Thanks for your feedback! 🙌")
 
 else:
     st.info("Add at least one member to start planning.")
