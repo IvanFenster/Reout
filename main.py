@@ -144,6 +144,17 @@ def _sheet_client():
     sa = gspread.service_account_from_dict(st.secrets["gcp"])
     return sa.open_by_key(st.secrets["SPREADSHEET_KEY"]).sheet1
 
+def render_clickable_stars():
+    """Displays 5 star-buttons; clicking star i sets feedback_rating=i."""
+    cols = st.columns(5)
+    current = st.session_state.get("feedback_rating", 0)
+    for i, col in enumerate(cols, start=1):
+        # show filled if <= current, otherwise outline
+        star_icon = "★" if i <= current else "☆"
+        if col.button(star_icon, key=f"star_{i}", use_container_width=True):
+            st.session_state["feedback_rating"] = i
+            _on_star_change()  # your existing callback to immediately save/update
+
 # ---------- MEMBER FORM ----------
 with st.form("member_form", clear_on_submit=True):
     st.subheader("👤 Add participant")
@@ -261,8 +272,10 @@ if st.session_state["members"]:
             on_change=_on_star_change,
         )
 
+        #render_clickable_stars()
+
         comment = st.text_area(
-            "Comments (optional)",
+            "Comments",
             placeholder="What did you like? What could be better?",
             key="feedback_comment",
             height=120,
@@ -275,6 +288,43 @@ if st.session_state["members"]:
                 ws = _sheet_client()
                 ws.update_cell(st.session_state["feedback_row"], 4, st.session_state["feedback_comment"])
                 st.success("Thanks for your feedback! 🙌")
+
+        st.markdown(
+            """
+            <div style="
+              background: #1f6feb22;       /* very light blue fill */
+              border: 2px solid #1f6feb;   /* bright blue border */
+              border-radius: 12px;
+              padding: 1.5rem;
+              margin: 2rem 0;
+              text-align: center;
+              box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            ">
+              <p style="font-size:1.1rem; margin-bottom:0.5rem;">
+                📋 <strong>Help us improve!</strong><br/>
+                If you have two minutes, please fill out our quick feedback survey.
+              </p>
+              <a href="https://docs.google.com/forms/d/e/1FAIpQLSfey02d4YJm8wcsx2Wttn_F1VWa0KNpZ6hO0LHBC0r1EKAdCA/viewform" target="_blank" style="text-decoration: none;">
+                <button style="
+                  background-color: #1f6feb;
+                  color: white;
+                  padding: 0.7em 1.8em;
+                  border: none;
+                  border-radius: 50px;
+                  font-size: 1.1rem;
+                  cursor: pointer;
+                  transition: transform 0.1s ease-in-out;
+                "
+                onmouseover="this.style.transform='scale(1.05)';"
+                onmouseout="this.style.transform='scale(1)';"
+                >
+                  Take the survey
+                </button>
+              </a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 else:
     st.info("Add at least one member to start planning.")
