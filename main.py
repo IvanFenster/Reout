@@ -48,8 +48,6 @@ st.markdown(
 st.set_page_config("Reout", layout="centered")
 st.title("Reout")
 
-st.write("SECRETS LOADED:", st.secrets)
-
 st.markdown(
     "Tell us your city, add each friend’s preferences, then hit **Generate** for an AI-crafted itinerary."
 )
