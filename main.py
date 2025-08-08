@@ -304,7 +304,7 @@ if st.session_state["members"]:
                 📋 <strong>Help us improve!</strong><br/>
                 If you have two minutes, please fill out our quick feedback survey.
               </p>
-              <a href="https://docs.google.com/forms/d/e/1FAIpQLSfey02d4YJm8wcsx2Wttn_F1VWa0KNpZ6hO0LHBC0r1EKAdCA/viewform" target="_blank" style="text-decoration: none;">
+              <a href="https://forms.gle/PCXFNqa7L4WMbv5TA" target="_blank" style="text-decoration: none;">
                 <button style="
                   background-color: #1f6feb;
                   color: white;
